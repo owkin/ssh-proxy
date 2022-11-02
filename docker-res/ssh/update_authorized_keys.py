@@ -50,7 +50,7 @@ try:
     # at this path the namespace the container is in is stored in Kubernetes deployment (see https://stackoverflow.com/questions/31557932/how-to-get-the-namespace-from-inside-a-pod-in-openshift)
     NAMESPACE = getoutput(
         "cat /var/run/secrets/kubernetes.io/serviceaccount/namespace")
-except (FileNotFoundError, TypeError):
+except (FileNotFoundError, TypeError, config.ConfigException):
     try:
         docker_client = docker.from_env()
         docker_client.ping()
@@ -66,7 +66,7 @@ if container_client is None:
 def get_authorized_keys_kubernetes(query_cache: list = []) -> (list, list):
     """Execs into all Kubernetes pods where the name complies to `SSH_PERMIT_TARGET_HOST` and returns it's public key.
 
-    Note: 
+    Note:
         This method can be quite slow. For big setups / clusters, think about rewriting it to fetch public keys from a REST API or so.
 
     Args:
@@ -102,8 +102,10 @@ def get_authorized_keys_kubernetes(query_cache: list = []) -> (list, list):
                 key = request.text
         except requests.exceptions.ConnectTimeout:
             print("Connection to {ip} timed out after {timeout} seconds. Will try to exec into the pod to retrieve the key.".format(ip=pod_ip, timeout=str(timeout_seconds)))
-
-        # If the API call did not work, try to exec into the pod. 
+        except requests.exceptions.ConnectionError as ex:
+            print(f"Failed to connect to {pod_ip}")
+            print(ex)
+        # If the API call did not work, try to exec into the pod.
         # Make sure that the executing process has permission to exec into the target pod (e.g. when Kubernetes roles are used)
         if key is None:
             try:
@@ -124,7 +126,7 @@ def get_authorized_keys_kubernetes(query_cache: list = []) -> (list, list):
 def get_authorized_keys_docker(query_cache: list = []) -> (list, list):
     """Execs into all Docker containers where the name starts with `SSH_PERMIT_TARGET_HOST` and returns it's public key.
 
-    Note: 
+    Note:
         This method can be quite slow. For big setups / clusters, think about rewriting it to fetch public keys from a REST API or so.
 
     Args:
@@ -140,7 +142,7 @@ def get_authorized_keys_docker(query_cache: list = []) -> (list, list):
     if ENV_SSH_TARGET_LABELS != "":
         SSH_TARGET_LABELS = ENV_SSH_TARGET_LABELS.split(",")
         filters.update({"label": SSH_TARGET_LABELS})
-    
+
     containers = docker_client.containers.list(filters=filters)
     authorized_keys = []
     new_query_cache = []
@@ -166,7 +168,7 @@ def get_authorized_keys_docker(query_cache: list = []) -> (list, list):
         if key is None:
             exec_result = container.exec_run(PRINT_KEY_COMMAND)
             key = exec_result[1].decode("utf-8")
-        
+
         if key is not None:
             authorized_keys.append(key)
             new_query_cache.append(container.id)
