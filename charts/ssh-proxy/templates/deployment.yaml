@@ -37,14 +37,9 @@ spec:
             - name: http
               containerPort: 80
               protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /
-              port: http
-          readinessProbe:
-            httpGet:
-              path: /
-              port: http
+          env:
+          - name: SSH_TARGET_PUBLICKEY_API_PORT
+            value: {{ .Values.sshTargetPublicKeyApiPort | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

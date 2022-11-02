@@ -5,10 +5,12 @@
 replicaCount: 1
 
 image:
-  repository: nginx
+  repository: owkin/dse-ssh-proxy
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: "latest"
+
+sshTargetPublicKeyApiPort: 8888
 
 imagePullSecrets: []
 nameOverride: ""
@@ -37,8 +39,9 @@ securityContext: {}
   # runAsUser: 1000
 
 service:
-  type: ClusterIP
-  port: 80
+  type: NodePort
+  port: 8022
+  nodePort: 30022
 
 ingress:
   enabled: false
